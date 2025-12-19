@@ -1,1 +1,50 @@
+# Ignore Visual Studio temporary files, build results, and caches
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+bin/
+obj/
+Debug/
+Release/
+
+# Visual Studio cache
 .vs/
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet packages
+*.nupkg
+packages/
+*.snupkg
+
+# Logs
+*.log
+
+# Global.json and other environment files (optional)
+global.json
+
+# Backup & autosave files
+*.bak
+*.swp
+*.tmp
+
+# Resharper / Rider
+_ReSharper*/
+*.DotSettings.user
+
+# Other IDEs
+.idea/
+*.iml
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
