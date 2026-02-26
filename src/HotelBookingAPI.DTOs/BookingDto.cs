@@ -1,4 +1,4 @@
-﻿namespace HotelBookingAPI.DTOs
+namespace HotelBookingAPI.DTOs
 {
     public class BookingDto
     {

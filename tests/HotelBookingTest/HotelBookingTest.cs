@@ -36,8 +36,8 @@ namespace HotelBookingTest
             Console.WriteLine($"Booking Id: {booking.Id}, CustomerId: {booking.CustomerId}, Room: {booking.RoomNumber}");
         }
 
-        [TestCase(31)]
-        [TestCase(41)]
+        [TestCase(1)]
+        [TestCase(10)]
         public async Task GetCustomer(int id)
         {
             var response = await client.GetAsync($"GetCustomer/{id}");
