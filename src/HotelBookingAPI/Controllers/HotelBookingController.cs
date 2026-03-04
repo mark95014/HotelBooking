@@ -140,19 +140,113 @@ namespace HotelBookingAPI.Controllers
             Customer? entity;
             if (dto.Id == 0)
             {
-                entity = new Customer { Name = dto.Name };
+                // Create new customer, optionally include bookings passed in dto
+                entity = new Customer
+                {
+                    Name = dto.Name,
+                    Bookings = dto.Bookings?.Select(b => new HotelBooking
+                    {
+                        RoomNumber = b.RoomNumber
+                        // CustomerId will be set by EF when relationship is saved
+                    }).ToList() ?? new List<HotelBooking>()
+                };
                 _context.Customers.Add(entity);
+
+                await _context.SaveChangesAsync();
+
+                // Update dto with generated ids
+                dto.Id = entity.Id;
+                if (entity.Bookings != null && entity.Bookings.Count > 0)
+                {
+                    dto.Bookings = entity.Bookings.Select(b => new BookingDto
+                    {
+                        Id = b.Id,
+                        CustomerId = b.CustomerId,
+                        RoomNumber = b.RoomNumber
+                    }).ToList();
+                }
+                else
+                {
+                    dto.Bookings = new List<BookingDto>();
+                }
             }
             else
             {
-                entity = await _context.Customers.FindAsync(dto.Id);
+                // Edit existing customer. Include bookings for easier upsert.
+                entity = await _context.Customers
+                    .Include(c => c.Bookings)
+                    .FirstOrDefaultAsync(c => c.Id == dto.Id);
+
                 if (entity == null)
                     return NotFound($"Customer with Id {dto.Id} not found");
 
                 entity.Name = dto.Name;
+
+                if (dto.Bookings != null)
+                {
+                    // Upsert incoming bookings: update existing ones, add new ones.
+                    var incoming = dto.Bookings;
+
+                    // Update or add
+                    foreach (var bDto in incoming)
+                    {
+                        if (bDto.Id == 0)
+                        {
+                            // new booking
+                            var newBooking = new HotelBooking
+                            {
+                                CustomerId = entity.Id,
+                                RoomNumber = bDto.RoomNumber
+                            };
+                            entity.Bookings.Add(newBooking);
+                        }
+                        else
+                        {
+                            // try to find in tracked entity bookings first
+                            var existing = entity.Bookings.FirstOrDefault(b => b.Id == bDto.Id);
+
+                            if (existing == null)
+                            {
+                                // Might be detached or belong to another customer; try DB
+                                existing = await _context.Bookings.FindAsync(bDto.Id);
+                            }
+
+                            if (existing == null)
+                            {
+                                // referenced booking id not found
+                                return NotFound($"Booking with Id {bDto.Id} not found");
+                            }
+
+                            // Ensure it is associated with this customer
+                            existing.CustomerId = entity.Id;
+                            existing.RoomNumber = bDto.RoomNumber;
+                        }
+                    }
+
+                    // Optionally: do not remove bookings missing from dto.Bookings.
+                    // If you want to remove missing bookings, uncomment below:
+                    /*
+                    var incomingIds = incoming.Where(b => b.Id > 0).Select(b => b.Id).ToHashSet();
+                    var toRemove = entity.Bookings.Where(b => b.Id != 0 && !incomingIds.Contains(b.Id)).ToList();
+                    foreach (var r in toRemove)
+                        _context.Bookings.Remove(r);
+                    */
+                }
+
+                await _context.SaveChangesAsync();
+
+                // Refresh dto.Bookings from DB to return current state
+                dto.Bookings = await _context.Bookings
+                    .Where(b => b.CustomerId == entity.Id)
+                    .Select(b => new BookingDto
+                    {
+                        Id = b.Id,
+                        CustomerId = b.CustomerId,
+                        RoomNumber = b.RoomNumber
+                    })
+                    .ToListAsync();
             }
 
-            await _context.SaveChangesAsync();
             return Ok(dto);
         }
 
